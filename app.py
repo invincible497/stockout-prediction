@@ -10,20 +10,31 @@ def load_data(file):
     return df
 
 def forecast_stock(data, weeks=12, stock_threshold=150):
-    # Ensure 'Sales' column exists
-    if 'Sales' not in data.columns:
-        raise ValueError("Error: 'Sales' column is missing from the dataset.")
+    # Show available columns for debugging
+    print("Available columns in dataset:", data.columns)
 
-    # Convert 'Sales' to numeric and drop missing values
-    data['Sales'] = pd.to_numeric(data['Sales'], errors='coerce')
-    data.dropna(subset=['Sales'], inplace=True)
+    # Try different column names (fixing potential issues)
+    possible_sales_columns = ["Sales", "sales", "Quantity", "Stock"]
+    found_column = None
     
+    for col in possible_sales_columns:
+        if col in data.columns:
+            found_column = col
+            break
+    
+    if found_column is None:
+        raise ValueError(f"Error: 'Sales' column is missing. Available columns: {list(data.columns)}")
+
+    # Convert to numeric
+    data[found_column] = pd.to_numeric(data[found_column], errors='coerce')
+    data.dropna(subset=[found_column], inplace=True)
+
     # Ensure 'Date' is the index
     if not isinstance(data.index, pd.DatetimeIndex):
         raise ValueError("Error: The index must be a Date column in datetime format.")
 
-    # Use only 'Sales' for ARIMA (univariate time series)
-    sales_series = data['Sales']
+    # Use correct sales column
+    sales_series = data[found_column]
 
     # Train ARIMA Model
     model = ARIMA(sales_series, order=(2, 0, 2))
@@ -38,6 +49,7 @@ def forecast_stock(data, weeks=12, stock_threshold=150):
     forecast_df['Stockout Risk'] = forecast_df['Forecasted_Sales'] < stock_threshold
 
     return forecast_df
+
 
 st.title("Medicine Stockout Forecast App")
 uploaded_file = st.file_uploader("Upload your CSV file", type=['csv'])
